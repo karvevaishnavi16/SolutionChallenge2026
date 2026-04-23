@@ -1,4 +1,5 @@
 # SolutionChallenge2026
+
 ## 1. Problem Statement (Given by Google)
 
 Sports organizations generate massive volumes of high-value digital media that rapidly scatter across global platforms, making it nearly impossible to track. This vast visibility gap leaves proprietary content highly vulnerable to widespread digital misappropriation, unauthorized redistribution, and intellectual property violations.
@@ -12,7 +13,6 @@ Sports organizations generate massive volumes of high-value digital media that r
 When we read the problem statement, most teams will think of piracy — stolen real videos being redistributed. But we identified a deeper, newer, and completely unsolved threat:
 
 > **AI tools like Sora, Runway, and Kling can now generate fake sports videos that look completely real.**
-> 
 
 A fake Virat Kohli century. A fake VAR decision overturning a goal. A fake IPL match highlight. These spread on social media as truth — and no existing tool can detect them.
 
