@@ -108,6 +108,10 @@ async function uploadToGeminiFileAPI(filePath, mimeType) {
 function getAnalysisFailureMessage(error) {
     const message = String(error && error.message ? error.message : '');
 
+    if (message.includes('API_KEY_INVALID') || message.includes('API key not valid')) {
+        return 'Gemini API key is invalid or missing. Check backend/.env and restart the server.';
+    }
+
     if (message.includes('429') || message.includes('quota')) {
         return 'Gemini quota exceeded. Please wait a minute and try again, or enable billing for the API project.';
     }

@@ -19,13 +19,11 @@ export default function AnalysisScreen({ videoFile, setAnalysisResult }) {
         const formData = new FormData();
         formData.append('video', videoFile);
 
-        // Sequence of statuses for the UI while it waits as requested
-        setTimeout(() => setProgressText("Extracting frames → Vision AI scan"), 1000);
-        setTimeout(() => setProgressText("Extracting frames → Vision AI scan → Physics check"), 3000);
-        setTimeout(() => setProgressText("Extracting frames → Vision AI scan → Physics check → VAR verification"), 5000);
-        setTimeout(() => setProgressText("Extracting frames → Vision AI scan → Physics check → VAR verification → Generating report"), 7000);
+        setTimeout(() => setProgressText("Extracting frames -> Vision AI scan"), 1000);
+        setTimeout(() => setProgressText("Extracting frames -> Vision AI scan -> Physics check"), 3000);
+        setTimeout(() => setProgressText("Extracting frames -> Vision AI scan -> Physics check -> VAR verification"), 5000);
+        setTimeout(() => setProgressText("Extracting frames -> Vision AI scan -> Physics check -> VAR verification -> Generating report"), 7000);
 
-        // Note: For the actual hackathon presentation, this URL needs to be the deployed backend URL.
         const response = await axios.post('http://localhost:5000/api/verify/analyze', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
@@ -34,9 +32,9 @@ export default function AnalysisScreen({ videoFile, setAnalysisResult }) {
           setAnalysisResult(response.data);
           navigate('/results');
           return;
-        } else {
-          throw new Error(response.data?.message || 'Analysis failed. Try again.');
         }
+
+        throw new Error(response.data?.message || 'Analysis failed. Try again.');
       } catch (error) {
         console.error("Analysis Error:", error);
         const message = error.response?.data?.message || error.message || 'Analysis failed. Try again.';
@@ -51,7 +49,6 @@ export default function AnalysisScreen({ videoFile, setAnalysisResult }) {
   return (
     <div className="w-full max-w-lg mx-auto text-center space-y-12">
       <div className="relative">
-        {/* Core scanner animation */}
         <div className="w-64 h-64 mx-auto border-4 border-primary/20 rounded-2xl relative overflow-hidden bg-surface/30">
           <div className="absolute inset-0 bg-primary/10 animate-pulse"></div>
           <div className="absolute inset-x-0 h-1 bg-primary shadow-[0_0_20px_theme('colors.primary')] animate-scan"></div>
@@ -59,13 +56,12 @@ export default function AnalysisScreen({ videoFile, setAnalysisResult }) {
             <Activity size={100} strokeWidth={1} />
           </div>
         </div>
-        
-        {/* Decorative nodes */}
+
         <div className="absolute -left-10 top-1/2 -translate-y-1/2 text-primary animate-pulse">
-           <ScanLine size={40} />
+          <ScanLine size={40} />
         </div>
         <div className="absolute -right-10 top-1/2 -translate-y-1/2 text-primary animate-pulse delay-75">
-           <BrainCircuit size={40} />
+          <BrainCircuit size={40} />
         </div>
       </div>
 
