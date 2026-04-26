@@ -80,12 +80,24 @@ Return ONLY valid JSON, no markdown:
   "suspiciousElements": [array of strings describing anything that looks out of place]
 }`;
 
-async function uploadToGeminiFileAPI(filePath, mimeType) {
+async function uploadToGeminiFileAPI(filePath, mimeType, retries = 3) {
     console.log(`Uploading ${filePath} to Gemini File API...`);
-    const uploadResult = await fileManager.uploadFile(filePath, {
-        mimeType,
-        displayName: path.basename(filePath),
-    });
+    let uploadResult;
+    
+    for (let i = 0; i < retries; i++) {
+        try {
+            uploadResult = await fileManager.uploadFile(filePath, {
+                mimeType,
+                displayName: path.basename(filePath).replace(/[^\x00-\x7F]/g, ""), // strip weird chars just in case
+            });
+            break; // Success
+        } catch (error) {
+            console.error(`Upload attempt ${i + 1} failed:`, error.message);
+            if (i === retries - 1) throw error;
+            console.log("Waiting 3 seconds before retrying...");
+            await new Promise(res => setTimeout(res, 3000));
+        }
+    }
 
     let file = await fileManager.getFile(uploadResult.file.name);
     console.log(`Uploaded file as: ${file.uri}`);

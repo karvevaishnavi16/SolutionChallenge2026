@@ -4,6 +4,7 @@ import { ShieldCheck } from 'lucide-react';
 import UploadScreen from './components/UploadScreen';
 import AnalysisScreen from './components/AnalysisScreen';
 import ResultsScreen from './components/ResultsScreen';
+import PublicVerificationScreen from './components/PublicVerificationScreen';
 
 function Layout({ children }) {
   return (
@@ -33,6 +34,7 @@ function App() {
           <Route path="/" element={<UploadScreen setVideoFile={setVideoFile} />} />
           <Route path="/analyze" element={<AnalysisScreen videoFile={videoFile} setAnalysisResult={setAnalysisResult} />} />
           <Route path="/results" element={<ResultsScreen result={analysisResult} />} />
+          <Route path="/verify/:hash" element={<PublicVerificationScreen />} />
         </Routes>
       </Layout>
     </Router>
