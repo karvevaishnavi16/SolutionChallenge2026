@@ -1,7 +1,9 @@
+require('dotenv').config();
 const express = require('express');
 const multer = require('multer');
-const { analyzeVideo } = require('../services/mockAI');
+const { analyzeVideoWithGemini } = require('../services/geminiService');
 const crypto = require('crypto');
+const fs = require('fs');
 
 const router = express.Router();
 
@@ -11,7 +13,7 @@ const storage = multer.diskStorage({
     cb(null, 'uploads/')
   },
   filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const uniqueSuffix = `${Date.now()}-${crypto.randomUUID()}`;
     cb(null, uniqueSuffix + '-' + file.originalname)
   }
 })
@@ -29,11 +31,17 @@ router.post('/analyze', upload.single('video'), async (req, res) => {
 
     console.log(`Received video for analysis: ${req.file.filename}`);
 
-    // Generate a mock hash for the video to act as its unique fingerprint
-    const videoHash = crypto.createHash('sha256').update(req.file.filename + Date.now()).digest('hex');
+    const fileBuffer = fs.readFileSync(req.file.path);
+    const videoHash = crypto.createHash('sha256')
+      .update(fileBuffer)
+      .digest('hex');
 
-    // Call our mock AI service to analyze
-    const analysisResult = await analyzeVideo(req.file.path);
+    // Call our Gemini AI service to analyze
+    const analysisResult = await analyzeVideoWithGemini(req.file.path, req.file.mimetype);
+
+    if (analysisResult && analysisResult.error) {
+      return res.status(500).json(analysisResult);
+    }
 
     res.json({
       success: true,
@@ -43,7 +51,7 @@ router.post('/analyze', upload.single('video'), async (req, res) => {
 
   } catch (error) {
     console.error('Error in analysis:', error);
-    res.status(500).json({ error: 'Analysis failed' });
+    res.status(500).json({ error: true, message: 'Analysis failed. Try again.' });
   }
 });
 

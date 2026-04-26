@@ -5,7 +5,8 @@ import { Activity, ScanLine, BrainCircuit, ShieldAlert } from 'lucide-react';
 
 export default function AnalysisScreen({ videoFile, setAnalysisResult }) {
   const navigate = useNavigate();
-  const [progressText, setProgressText] = useState("Initializing VAR Integrity Protocol...");
+  const [progressText, setProgressText] = useState("Initializing Analysis...");
+  const [errorText, setErrorText] = useState('');
 
   useEffect(() => {
     if (!videoFile) {
@@ -18,43 +19,29 @@ export default function AnalysisScreen({ videoFile, setAnalysisResult }) {
         const formData = new FormData();
         formData.append('video', videoFile);
 
-        // Sequence of fake statuses for the UI while it waits
-        setTimeout(() => setProgressText("Uploading frame data to secure server..."), 500);
-        setTimeout(() => setProgressText("Running Cloud Vision API anomaly detection..."), 1500);
-        setTimeout(() => setProgressText("Executing Gemini Physics-based verification..."), 2500);
-        setTimeout(() => setProgressText("Cross-referencing manipulation signatures..."), 3500);
+        // Sequence of statuses for the UI while it waits as requested
+        setTimeout(() => setProgressText("Extracting frames → Vision AI scan"), 1000);
+        setTimeout(() => setProgressText("Extracting frames → Vision AI scan → Physics check"), 3000);
+        setTimeout(() => setProgressText("Extracting frames → Vision AI scan → Physics check → VAR verification"), 5000);
+        setTimeout(() => setProgressText("Extracting frames → Vision AI scan → Physics check → VAR verification → Generating report"), 7000);
 
         // Note: For the actual hackathon presentation, this URL needs to be the deployed backend URL.
         const response = await axios.post('http://localhost:5000/api/verify/analyze', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
 
-        if (response.data.success) {
+        if (response.data?.success) {
           setAnalysisResult(response.data);
           navigate('/results');
+          return;
         } else {
-          throw new Error('Analysis failed');
+          throw new Error(response.data?.message || 'Analysis failed. Try again.');
         }
       } catch (error) {
         console.error("Analysis Error:", error);
-        // Fallback for demo if backend isn't running
-        setTimeout(() => {
-           setAnalysisResult({
-             hash: 'abc123fallbackhash456xyz',
-             results: {
-               status: 'completed',
-               verdict: 'AUTHENTIC',
-               confidenceScore: 99.1,
-               xaiReport: {
-                 summary: "Demo mode fallback result. Physics and visuals are consistent.",
-                 details: [
-                   { type: "Vision Check", description: "Facial features consistent.", timestamp: "overall", severity: "Pass" }
-                 ]
-               }
-             }
-           });
-           navigate('/results');
-        }, 4000);
+        const message = error.response?.data?.message || error.message || 'Analysis failed. Try again.';
+        setErrorText(message);
+        setProgressText("Analysis failed.");
       }
     };
 
@@ -84,12 +71,17 @@ export default function AnalysisScreen({ videoFile, setAnalysisResult }) {
 
       <div className="space-y-4">
         <h2 className="text-2xl font-bold tracking-wider">ANALYZING FOOTAGE</h2>
-        <div className="glass rounded-lg py-4 px-6 inline-block">
-          <p className="text-primary font-mono text-sm animate-pulse flex items-center gap-2">
-            <ShieldAlert size={16} />
-            {progressText}
+        <div className="glass rounded-lg py-4 px-6 inline-block max-w-full overflow-hidden">
+          <p className="text-primary font-mono text-xs sm:text-sm animate-pulse flex items-center justify-center gap-2 text-center">
+            <ShieldAlert size={16} className="flex-shrink-0" />
+            <span className="truncate">{progressText}</span>
           </p>
         </div>
+        {errorText && (
+          <div className="glass rounded-lg py-4 px-6 max-w-full border border-danger/30 text-danger text-sm">
+            {errorText}
+          </div>
+        )}
       </div>
     </div>
   );

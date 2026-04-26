@@ -13,7 +13,7 @@ function Layout({ children }) {
           <ShieldCheck size={32} />
           <span className="text-2xl font-bold text-white tracking-tight">Authenti<span className="text-primary">Kit</span></span>
         </div>
-        <div className="text-sm text-slate-400">Team TriCoders</div>
+        <div className="text-sm text-slate-400">Ctrl+AI+Win</div>
       </header>
       <main className="flex-grow flex items-center justify-center p-6">
         {children}

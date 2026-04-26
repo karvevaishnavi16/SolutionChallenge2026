@@ -26,3 +26,19 @@
 .animate-scan {
   animation: scanline 2s linear infinite;
 }
+
+/* Sleek SaaS Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(51, 65, 85, 0.5); /* slate-700 with opacity */
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(71, 85, 105, 0.8); /* slate-600 */
+}

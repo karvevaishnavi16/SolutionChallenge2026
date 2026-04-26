@@ -11,13 +11,20 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@google-cloud/video-intelligence": "^6.2.1",
     "@google-cloud/vision": "^5.3.5",
     "@google/genai": "^1.50.1",
+    "@google/generative-ai": "^0.24.1",
+    "axios": "^1.15.2",
+    "c2pa-node": "^0.5.26",
     "cors": "^2.8.6",
-    "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "firebase-admin": "^13.8.0",
     "multer": "^2.1.1",
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.14",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "dotenv": "^17.4.2"
   }
 }
