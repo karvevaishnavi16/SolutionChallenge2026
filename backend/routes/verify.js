@@ -4,6 +4,7 @@ const multer = require('multer');
 const { analyzeVideoWithGemini } = require('../services/geminiService');
 const crypto = require('crypto');
 const fs = require('fs');
+const path = require('path');
 
 const router = express.Router();
 
@@ -36,8 +37,14 @@ router.post('/analyze', upload.single('video'), async (req, res) => {
       .update(fileBuffer)
       .digest('hex');
 
+    const extension = path.extname(req.file.originalname || '').toLowerCase();
+    const fallbackMimeType = extension === '.mov' ? 'video/quicktime' : 'video/mp4';
+    const mimeType = req.file.mimetype && req.file.mimetype !== 'application/octet-stream'
+      ? req.file.mimetype
+      : fallbackMimeType;
+
     // Call our Gemini AI service to analyze
-    const analysisResult = await analyzeVideoWithGemini(req.file.path, req.file.mimetype);
+    const analysisResult = await analyzeVideoWithGemini(req.file.path, mimeType);
 
     if (analysisResult && analysisResult.error) {
       return res.status(500).json(analysisResult);
@@ -51,7 +58,7 @@ router.post('/analyze', upload.single('video'), async (req, res) => {
 
   } catch (error) {
     console.error('Error in analysis:', error);
-    res.status(500).json({ error: true, message: 'Analysis failed. Try again.' });
+    res.status(500).json({ error: true, message: error.message || 'Analysis failed. Try again.' });
   }
 });
 

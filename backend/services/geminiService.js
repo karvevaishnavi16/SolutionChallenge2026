@@ -246,7 +246,7 @@ async function analyzeVideoWithGemini(filePath, mimeType) {
         };
 
         const model = genAI.getGenerativeModel({
-            model: "gemini-flash-latest",
+            model: "gemini-2.5-flash-lite",
             generationConfig: {
                 temperature: 0,
                 responseMimeType: "application/json"
