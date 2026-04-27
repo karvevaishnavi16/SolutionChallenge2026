@@ -2,12 +2,24 @@ const admin = require('firebase-admin');
 const path = require('path');
 const fs = require('fs');
 
-const serviceAccount = require('../firebase-key.json');
+let serviceAccount = null;
+try {
+  serviceAccount = require('../firebase-key.json');
+} catch (err) {
+  console.log('Local firebase-key.json not found, using default credentials (ADC).');
+}
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  storageBucket: `${serviceAccount.project_id}.appspot.com` // Try appspot.com as it is the most common default
-});
+if (serviceAccount) {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+    storageBucket: `${serviceAccount.project_id}.appspot.com`
+  });
+} else {
+  const projectId = process.env.GOOGLE_CLOUD_PROJECT || 'hackathon-gemini-project';
+  admin.initializeApp({
+    storageBucket: `${projectId}.appspot.com`
+  });
+}
 
 const bucket = admin.storage().bucket();
 const db = admin.firestore();

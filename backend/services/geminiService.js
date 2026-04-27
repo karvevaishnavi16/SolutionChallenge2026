@@ -6,8 +6,15 @@ const path = require("path");
 const QRCode = require('qrcode');
 require("dotenv").config();
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY);
+let genAI = null;
+let fileManager = null;
+
+if (process.env.GEMINI_API_KEY) {
+  genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY);
+} else {
+  console.log("Warning: GEMINI_API_KEY is not set. API calls will fail.");
+}
 
 const DETECTION_PROMPT = `You are a forensic sports video authentication expert.
 Analyze this video strictly for deepfake or AI generation.

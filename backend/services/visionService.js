@@ -9,10 +9,16 @@ const crypto = require('crypto');
 ffmpeg.setFfmpegPath(ffmpegPath);
 ffmpeg.setFfprobePath(ffprobePath);
 
-// Initialize the Vision client using the Service Account JSON
-const visionClient = new vision.ImageAnnotatorClient({
-  keyFilename: path.join(__dirname, '../google-cloud-key.json')
-});
+// Initialize the Vision client using the Service Account JSON if it exists, otherwise use ADC
+let visionConfig = {};
+const keyPath = path.join(__dirname, '../google-cloud-key.json');
+if (fs.existsSync(keyPath)) {
+  visionConfig.keyFilename = keyPath;
+} else {
+  console.log('google-cloud-key.json not found, using ADC for Vision API');
+}
+
+const visionClient = new vision.ImageAnnotatorClient(visionConfig);
 
 function extractFrames(videoPath, outputDir, numFrames = 3) {
   return new Promise((resolve, reject) => {

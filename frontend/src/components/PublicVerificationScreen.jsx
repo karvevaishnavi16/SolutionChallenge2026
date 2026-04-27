@@ -12,7 +12,10 @@ export default function PublicVerificationScreen() {
   useEffect(() => {
     const fetchRecord = async () => {
       try {
-        const response = await axios.get(`http://localhost:5000/api/verify/${hash}`);
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const API_BASE = isLocalhost ? 'http://localhost:5000' : 'https://authentikit-backend-705987336498.us-central1.run.app';
+        
+        const response = await axios.get(`${API_BASE}/api/verify/${hash}`);
         setRecord(response.data.record);
       } catch (err) {
         console.error('Failed to fetch record:', err);

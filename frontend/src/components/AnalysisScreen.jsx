@@ -24,9 +24,10 @@ export default function AnalysisScreen({ videoFile, setAnalysisResult }) {
         setTimeout(() => setProgressText("Extracting frames -> Vision AI scan -> Physics check -> VAR verification"), 5000);
         setTimeout(() => setProgressText("Extracting frames -> Vision AI scan -> Physics check -> VAR verification -> Generating report"), 7000);
 
-        const response = await axios.post('http://localhost:5000/api/verify/analyze', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const API_BASE = isLocalhost ? 'http://localhost:5000' : 'https://authentikit-backend-705987336498.us-central1.run.app';
+        
+        const response = await axios.post(`${API_BASE}/api/verify/analyze`, formData);
 
         if (response.data?.success) {
           setAnalysisResult(response.data);
