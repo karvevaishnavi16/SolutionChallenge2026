@@ -6,14 +6,53 @@ const path = require("path");
 const QRCode = require('qrcode');
 require("dotenv").config();
 
+// --- Multi-Key Support: Rotates through available API keys ---
+const API_KEYS = [
+  process.env.GEMINI_API_KEY,
+  process.env.GEMINI_API_KEY_2,
+  process.env.GEMINI_API_KEY_3,
+].filter(Boolean); // Remove any undefined/empty keys
+
+let currentKeyIndex = 0;
+
+function getCurrentKey() {
+  if (API_KEYS.length === 0) return null;
+  return API_KEYS[currentKeyIndex];
+}
+
+function rotateToNextKey() {
+  if (API_KEYS.length <= 1) return false; // No other key to rotate to
+  const oldIndex = currentKeyIndex;
+  currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
+  // If we've looped back to the starting key, all keys are exhausted
+  if (currentKeyIndex === oldIndex) return false;
+  console.log(`🔑 Rotating to API key #${currentKeyIndex + 1} of ${API_KEYS.length}`);
+  return true;
+}
+
+function getClients(apiKey) {
+  return {
+    genAI: new GoogleGenerativeAI(apiKey),
+    fileManager: new GoogleAIFileManager(apiKey),
+  };
+}
+
+// Initialize with the first available key
 let genAI = null;
 let fileManager = null;
 
-if (process.env.GEMINI_API_KEY) {
-  genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY);
+if (API_KEYS.length > 0) {
+  const clients = getClients(API_KEYS[0]);
+  genAI = clients.genAI;
+  fileManager = clients.fileManager;
+  console.log(`✅ Gemini initialized with ${API_KEYS.length} API key(s) available.`);
 } else {
-  console.log("Warning: GEMINI_API_KEY is not set. API calls will fail.");
+  console.log("⚠️ Warning: No GEMINI_API_KEY is set. API calls will fail.");
+}
+
+function isQuotaError(error) {
+  const msg = String(error && error.message ? error.message : '');
+  return msg.includes('429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED');
 }
 
 const DETECTION_PROMPT = `You are a forensic sports video authentication expert.
@@ -254,92 +293,105 @@ async function generateC2PACertificate(videoHash, verdict) {
 
 async function analyzeVideoWithGemini(filePath, mimeType) {
     console.log(`Starting Gemini analysis for ${filePath}`);
+    const startingKeyIndex = currentKeyIndex;
 
-    try {
-        const uploadedFile = await uploadToGeminiFileAPI(filePath, mimeType);
-        const filePart = {
-            fileData: {
-                fileUri: uploadedFile.uri,
-                mimeType: uploadedFile.mimeType,
-            },
-        };
+    // Retry loop: try current key, then rotate to next on quota errors
+    while (true) {
+        try {
+            const uploadedFile = await uploadToGeminiFileAPI(filePath, mimeType);
+            const filePart = {
+                fileData: {
+                    fileUri: uploadedFile.uri,
+                    mimeType: uploadedFile.mimeType,
+                },
+            };
 
-        const model = genAI.getGenerativeModel({
-            model: "gemini-2.5-flash-lite",
-            generationConfig: {
-                temperature: 0,
-                responseMimeType: "application/json"
+            const model = genAI.getGenerativeModel({
+                model: "gemini-2.5-flash-lite",
+                generationConfig: {
+                    temperature: 0,
+                    responseMimeType: "application/json"
+                }
+            });
+
+            const detectionRaw = await runGeminiJsonCall(model, filePart, DETECTION_PROMPT);
+            const matchDetailsRaw = await runGeminiJsonCall(model, filePart, MATCH_DETAILS_PROMPT);
+
+            const physicsResult = normalizeDetectionResult(detectionRaw);
+            const matchDetails = normalizeMatchDetails(matchDetailsRaw);
+            const isFakeWithThreshold = physicsResult.isFake && physicsResult.confidenceScore > 55;
+            const verdict = isFakeWithThreshold ? 'MANIPULATED' : 'AUTHENTIC';
+            const videoHash = crypto
+                .createHash('sha256')
+                .update(fs.readFileSync(filePath))
+                .digest('hex');
+
+            const varResult = await performVARCheck(matchDetails);
+            const certificate = await generateC2PACertificate(videoHash, verdict);
+            const contextLooksSafe = matchDetails.settingLooksReal && matchDetails.contextMatchesSport;
+            const contextSummary = [
+                `Video Type: ${matchDetails.videoType}`,
+                `Sport: ${matchDetails.sport}`,
+                `Teams: ${matchDetails.team1} vs ${matchDetails.team2}`,
+                `Score: ${matchDetails.score}`,
+                `Stadium: ${matchDetails.stadium}`,
+                `Tournament: ${matchDetails.tournament}`
+            ].join(' | ');
+
+            return {
+                status: 'completed',
+                verdict,
+                confidenceScore: physicsResult.confidenceScore,
+                xaiReport: {
+                    summary: physicsResult.reasons.length > 0
+                        ? physicsResult.reasons.join('. ')
+                        : 'No anomalies detected. Video appears authentic.',
+                    manipulationType: physicsResult.manipulationType,
+                    details: [
+                        ...physicsResult.reasons.map((reason, index) => ({
+                            type: physicsResult.isFake ? 'Anomaly Detected' : 'Check Passed',
+                            description: reason,
+                            timestamp: physicsResult.flaggedFrames[index]
+                                ? `Frame ${physicsResult.flaggedFrames[index]}`
+                                : 'overall',
+                            severity: physicsResult.isFake ? 'Critical' : 'Pass'
+                        })),
+                        {
+                            type: 'VAR Integrity Check',
+                            description: contextSummary,
+                            timestamp: 'overall',
+                            severity: 'Info'
+                        },
+                        {
+                            type: 'Identity & Context Check',
+                            description: contextLooksSafe
+                                ? 'Setting appears genuine and context matches the sport'
+                                : 'Setting or sports context appears suspicious',
+                            timestamp: 'overall',
+                            severity: contextLooksSafe ? 'Pass' : 'Warning'
+                        }
+                    ]
+                },
+                varCheck: varResult,
+                certificate,
+                rawGeminiData: {
+                    detection: physicsResult,
+                    matchDetails
+                }
+            };
+        } catch (error) {
+            // If quota error and we have more keys, rotate and retry
+            if (isQuotaError(error) && rotateToNextKey() && currentKeyIndex !== startingKeyIndex) {
+                console.log(`⚠️ Quota exceeded on key #${currentKeyIndex}. Switching to next key and retrying...`);
+                const newClients = getClients(getCurrentKey());
+                genAI = newClients.genAI;
+                fileManager = newClients.fileManager;
+                continue; // Retry with new key
             }
-        });
 
-        const detectionRaw = await runGeminiJsonCall(model, filePart, DETECTION_PROMPT);
-        const matchDetailsRaw = await runGeminiJsonCall(model, filePart, MATCH_DETAILS_PROMPT);
-
-        const physicsResult = normalizeDetectionResult(detectionRaw);
-        const matchDetails = normalizeMatchDetails(matchDetailsRaw);
-        const isFakeWithThreshold = physicsResult.isFake && physicsResult.confidenceScore > 55;
-        const verdict = isFakeWithThreshold ? 'MANIPULATED' : 'AUTHENTIC';
-        const videoHash = crypto
-            .createHash('sha256')
-            .update(fs.readFileSync(filePath))
-            .digest('hex');
-
-        const varResult = await performVARCheck(matchDetails);
-        const certificate = await generateC2PACertificate(videoHash, verdict);
-        const contextLooksSafe = matchDetails.settingLooksReal && matchDetails.contextMatchesSport;
-        const contextSummary = [
-            `Video Type: ${matchDetails.videoType}`,
-            `Sport: ${matchDetails.sport}`,
-            `Teams: ${matchDetails.team1} vs ${matchDetails.team2}`,
-            `Score: ${matchDetails.score}`,
-            `Stadium: ${matchDetails.stadium}`,
-            `Tournament: ${matchDetails.tournament}`
-        ].join(' | ');
-
-        return {
-            status: 'completed',
-            verdict,
-            confidenceScore: physicsResult.confidenceScore,
-            xaiReport: {
-                summary: physicsResult.reasons.length > 0
-                    ? physicsResult.reasons.join('. ')
-                    : 'No anomalies detected. Video appears authentic.',
-                manipulationType: physicsResult.manipulationType,
-                details: [
-                    ...physicsResult.reasons.map((reason, index) => ({
-                        type: physicsResult.isFake ? 'Anomaly Detected' : 'Check Passed',
-                        description: reason,
-                        timestamp: physicsResult.flaggedFrames[index]
-                            ? `Frame ${physicsResult.flaggedFrames[index]}`
-                            : 'overall',
-                        severity: physicsResult.isFake ? 'Critical' : 'Pass'
-                    })),
-                    {
-                        type: 'VAR Integrity Check',
-                        description: contextSummary,
-                        timestamp: 'overall',
-                        severity: 'Info'
-                    },
-                    {
-                        type: 'Identity & Context Check',
-                        description: contextLooksSafe
-                            ? 'Setting appears genuine and context matches the sport'
-                            : 'Setting or sports context appears suspicious',
-                        timestamp: 'overall',
-                        severity: contextLooksSafe ? 'Pass' : 'Warning'
-                    }
-                ]
-            },
-            varCheck: varResult,
-            certificate,
-            rawGeminiData: {
-                detection: physicsResult,
-                matchDetails
-            }
-        };
-    } catch (error) {
-        console.error("Gemini analysis failed:", error);
-        return { error: true, message: getAnalysisFailureMessage(error) };
+            console.error("Gemini analysis failed:", error);
+            return { error: true, message: getAnalysisFailureMessage(error) };
+        }
     }
 }
 
